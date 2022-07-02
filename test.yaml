@@ -1,0 +1,55 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: show-readme
+spec:
+  workspaces:
+  - name: source
+  steps:
+  - name: read
+    image: debian:latest
+    script: |
+      #!/usr/bin/env sh
+      cat $(workspaces.source.path)/README.md
+---
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: test
+spec:
+  workspaces:
+    - name: shared-data
+  tasks:
+    - name: fetch-source
+      taskRef:
+        name: git-clone
+      workspaces:
+        - name: output
+          workspace: shared-data
+      params:
+        - name: url
+          value: https://github.com/whs-dot-hk/tekton-test
+    - name: show-readme
+      runAfter: ["fetch-source"]
+      taskRef:
+        name: show-readme
+      workspaces:
+        - name: source
+          workspace: shared-data
+---
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: test-run
+spec:
+  pipelineRef:
+    name: test
+  workspaces:
+    - name: shared-data
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi
